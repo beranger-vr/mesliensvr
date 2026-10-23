@@ -72,7 +72,6 @@
                 <div>
                     <h1 class="text-xl font-bold tracking-wide text-white flex items-center gap-2">
                         Espace <span class="text-amber-400 font-black">Enseignant</span>
-                        <span class="text-xs bg-amber-500/20 border border-amber-500/50 text-amber-300 font-semibold px-2.5 py-0.5 rounded-full">PROTÉGÉ SHA-256</span>
                     </h1>
                     <p class="text-xs text-slate-400">Administration et synchronisation Cloud</p>
                 </div>
@@ -122,27 +121,15 @@
     <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
         <div class="glass-panel w-full max-w-md rounded-3xl p-8 border border-amber-500/40 shadow-2xl relative">
             <div class="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 text-3xl flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-lock"></i>
+                <i class="fa-solid fa-key"></i>
             </div>
             <h3 class="text-xl font-bold text-white text-center mb-1">Espace Administration</h3>
-            <p class="text-xs text-slate-400 text-center mb-6">Saisissez votre mot de passe et votre Master Key d'écriture.</p>
+            <p class="text-xs text-slate-400 text-center mb-6">Entrez votre Clé API Maître (X-Master-Key) pour accéder au panneau d'administration.</p>
             
             <form id="authForm" class="space-y-4">
-                <!-- Champ Mot de passe avec bouton voir -->
-                <div>
-                    <label class="block text-xs font-semibold text-amber-400 uppercase mb-1">Mot de passe enseignant</label>
-                    <div class="relative">
-                        <input type="password" id="inputPassword" required placeholder="Mot de passe..." class="w-full pl-4 pr-12 py-3 rounded-xl bg-white/5 border border-white/15 text-white text-sm focus:outline-none focus:border-amber-400">
-                        <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white">
-                            <i class="fa-solid fa-eye text-sm"></i>
-                        </button>
-                    </div>
-                </div>
-
                 <!-- Champ Master Key avec bouton voir -->
                 <div>
                     <label class="block text-xs font-semibold text-amber-400 uppercase mb-1">Clé API Maître (X-Master-Key)</label>
-                    <p class="text-[10px] text-slate-400 mb-1">Sera conservée uniquement dans votre navigateur.</p>
                     <div class="relative">
                         <input type="password" id="inputMasterKey" required placeholder="$2a$10$..." class="w-full pl-4 pr-12 py-3 rounded-xl bg-white/5 border border-white/15 text-white text-sm focus:outline-none focus:border-amber-400">
                         <button type="button" id="toggleMasterKey" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white">
@@ -152,7 +139,7 @@
                 </div>
 
                 <div class="pt-2">
-                    <button type="submit" class="vr-btn w-full py-3 bg-amber-500 text-slate-950 font-bold rounded-xl text-sm shadow-lg">Connexion Sécurisée</button>
+                    <button type="submit" class="vr-btn w-full py-3 bg-amber-500 text-slate-950 font-bold rounded-xl text-sm shadow-lg">Connexion Directe</button>
                 </div>
             </form>
         </div>
@@ -230,7 +217,6 @@
 
     <script>
         const binId = "6adb5c93ffd5d1605385a545";
-        const PASSWORD_HASH = "4f83b6f2f9c322b7a976a445e3f4a47734208a54d3e23cf63b27b8aa5420371a";
 
         let categories = [];
         let bookmarks = [];
@@ -238,7 +224,6 @@
 
         const authModal = document.getElementById('authModal');
         const authForm = document.getElementById('authForm');
-        const inputPassword = document.getElementById('inputPassword');
         const inputMasterKey = document.getElementById('inputMasterKey');
         const mainContent = document.getElementById('mainContent');
         const adminControls = document.getElementById('adminControls');
@@ -259,47 +244,24 @@
             setupEventListeners();
         });
 
-        async function sha256(str) {
-            const buffer = new TextEncoder().encode(str);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
-
-        // LOGIQUE DE CONNEXION AVEC DIAGNOSTIC PRÉCIS
+        // CONNEXION DIRECTE PAR TEST DE LA CLÉ API
         authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const typedPwd = inputPassword.value.trim();
             const key = inputMasterKey.value.trim();
 
-            const typedHash = await sha256(typedPwd);
-
-            // 1. Diagnostic Mot de Passe
-            if (typedHash !== PASSWORD_HASH) {
-                showToast('Mot de passe enseignant incorrect !', true);
+            if (!key) {
+                showToast('Veuillez entrer votre Master Key !', true);
                 return;
             }
 
-            // 2. Diagnostic Format Master Key
-            if (!key.startsWith('$2')) {
-                showToast('Format de Master Key invalide (doit commencer par $2...) !', true);
-                return;
-            }
-
-            // Si validation OK
             masterKey = key;
-            localStorage.setItem('quest_edu_master_key', masterKey);
-            authModal.classList.add('hidden');
-            mainContent.classList.remove('hidden');
-            adminControls.classList.remove('hidden');
-            await loadData();
-        });
-
-        // Boutons Afficher/Masquer le mot de passe
-        document.getElementById('togglePassword').addEventListener('click', () => {
-            const type = inputPassword.getAttribute('type') === 'password' ? 'text' : 'password';
-            inputPassword.setAttribute('type', type);
-            document.querySelector('#togglePassword i').className = type === 'password' ? 'fa-solid fa-eye text-sm' : 'fa-solid fa-eye-slash text-sm';
+            const success = await loadData();
+            if (success) {
+                localStorage.setItem('quest_edu_master_key', masterKey);
+                authModal.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                adminControls.classList.remove('hidden');
+            }
         });
 
         document.getElementById('toggleMasterKey').addEventListener('click', () => {
@@ -320,10 +282,15 @@
                     renderCategoriesSelect();
                     renderBookmarks();
                     showToast('Connexion et chargement réussis !');
+                    return true;
                 } else {
-                    showToast('Erreur : Master Key refusée par le Cloud !', true);
+                    showToast('Clé Master Key invalide ou refusée par le serveur !', true);
+                    return false;
                 }
-            } catch (e) { showToast('Erreur de connexion Cloud', true); }
+            } catch (e) { 
+                showToast('Erreur de connexion réseau !', true); 
+                return false;
+            }
         }
 
         async function saveData() {
@@ -382,7 +349,10 @@
         }
 
         function setupEventListeners() {
-            document.getElementById('btnLogout').addEventListener('click', () => window.location.reload());
+            document.getElementById('btnLogout').addEventListener('click', () => {
+                localStorage.removeItem('quest_edu_master_key');
+                window.location.reload();
+            });
             document.getElementById('btnOpenAddModal').addEventListener('click', () => openBookmarkModal());
             document.querySelectorAll('.closeBookmarkModal').forEach(btn => btn.addEventListener('click', () => bookmarkModal.classList.add('hidden')));
             
